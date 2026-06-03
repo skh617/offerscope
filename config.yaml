@@ -7,4 +7,5 @@
 tasks:
   - keyword: AI应用开发
     cities: [北京]
+    max_jobs: 10
     webhook: https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxxxxxxxxxxx

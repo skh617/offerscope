@@ -169,8 +169,9 @@ def run_live(config):
     all_tasks = []
     for task in config["tasks"]:
         keyword = task["keyword"]
+        max_jobs = task.get("max_jobs", 40)
         for city in task.get("cities", []):
-            all_tasks.append((keyword, city, task.get("webhook", "")))
+            all_tasks.append((keyword, city, task.get("webhook", ""), max_jobs))
 
     # 导入 scraper（需要 CloakBrowser 环境）
     try:
@@ -191,7 +192,7 @@ def run_live(config):
             "南京": 101190100, "武汉": 101200100, "西安": 101110100,
         }
 
-        for keyword, city, webhook in all_tasks:
+        for keyword, city, webhook, max_jobs in all_tasks:
             city_code = CITY_CODES.get(city)
             if not city_code:
                 print(f"  [跳过] 未知城市编码: {city}")
@@ -202,7 +203,7 @@ def run_live(config):
             print(f"{'─'*50}")
 
             try:
-                json_path, jobs = scrape(keyword, city, city_code, max_jobs=40)
+                json_path, jobs = scrape(keyword, city, city_code, max_jobs=max_jobs)
                 if json_path and jobs:
                     print(f"  [完成] {len(jobs)} 个岗位 → {json_path}")
                 else:
