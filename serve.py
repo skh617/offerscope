@@ -9,10 +9,10 @@ from urllib.parse import unquote
 PORT = 8092
 REPORT_DIR = Path(__file__).parent / "reports"
 
-# 关键词 → 英文短名映射
+# 关键词 → 英文短名匹配（匹配文件名中包含这些关键词的报告）
 SLUG_MAP = {
-    "ai": ["ai应用开发", "AI应用开发"],
-    "java": ["java后端开发", "Java后端开发"],
+    "ai": ["ai应用", "AI应用", "ai应用后端"],
+    "java": ["java后端", "Java后端"],
 }
 
 
