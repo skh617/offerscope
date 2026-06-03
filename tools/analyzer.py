@@ -455,8 +455,6 @@ body {{ background: var(--bg); color: var(--text); font-family: var(--font-sans)
     html += f'''
         <div class="stat-row"><span class="stat-label">月薪中位数</span><span class="stat-value">{med:.1f}K</span></div>
         <div class="stat-row"><span class="stat-label">月薪均值</span><span class="stat-value">{avg_sal:.1f}K</span></div>
-        <div class="stat-row"><span class="stat-label">P75 高薪线</span><span class="stat-value">{p75:.1f}K</span></div>
-        <div class="stat-row"><span class="stat-label">P25 入门线</span><span class="stat-value">{p25:.1f}K</span></div>
         <div class="stat-row"><span class="stat-label">有薪资数据</span><span class="stat-value">{len(salary_avgs)}/{len(jobs)}</span></div>
       </div>
     </div>
@@ -687,7 +685,10 @@ function showDetail(i) {{
       <span>行业: ${{j.industry||'--'}}</span><span>规模: ${{j.scale||'--'}}</span><span>融资: ${{j.financing||'--'}}</span>
     </div>
     <div class="modal-desc">${{(j.description||'暂无描述').replace(/</g,'&lt;').replace(/>/g,'&gt;')}}</div>
-    <button style="margin-top:16px;padding:8px 20px;background:var(--accent);color:white;border:none;cursor:pointer;font-size:14px;" onclick="document.getElementById('modalOverlay').classList.remove('active')">关闭</button>
+    <div style="margin-top:16px;display:flex;gap:12px;">
+      <a href="https://www.zhipin.com${{j.link||''}}" target="_blank" style="display:inline-block;padding:8px 20px;background:var(--accent);color:white;text-decoration:none;font-size:14px;">查看BOSS直聘原文 →</a>
+      <button style="padding:8px 20px;background:transparent;color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;font-size:14px;" onclick="document.getElementById('modalOverlay').classList.remove('active')">关闭</button>
+    </div>
   `;
   overlay.classList.add('active');
 }}

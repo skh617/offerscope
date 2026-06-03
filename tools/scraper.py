@@ -197,57 +197,139 @@ def save(jobs, prefix):
         w.writeheader()
         w.writerows(jobs)
 
-def main():
+# 城市编码映射表
+CITY_CODES = {
+    "北京": 101010100, "上海": 101020100, "广州": 101280100,
+    "深圳": 101280600, "杭州": 101210100, "成都": 101270100,
+    "南京": 101190100, "武汉": 101200100, "西安": 101110100,
+}
+
+
+def scrape(keyword, city_name, city_code, max_jobs=40, pages_per_search=2):
+    """单任务抓取入口 — 供 scheduler 调用
+
+    Args:
+        keyword: 搜索关键词
+        city_name: 城市中文名（用于数据标记）
+        city_code: BOSS直聘城市编码
+        max_jobs: 抓取数量上限
+        pages_per_search: 滚动翻页轮数
+
+    Returns:
+        (json_path, jobs_list) 或 (None, []) 如果失败
+    """
     print("=" * 50)
     print("  BOSS直聘职位抓取")
-    print(f"  关键词: {KEYWORDS}")
-    print(f"  城市: {list(CITIES.keys())}")
-    print(f"  上限: {MAX_JOBS} 条")
+    print(f"  关键词: {keyword}")
+    print(f"  城市: {city_name}")
+    print(f"  上限: {max_jobs} 条")
     print("=" * 50)
+
     browser = launch(headless=False, humanize=True)
     page = browser.new_page()
-    login_wait(page)
+
+    if not login_wait(page):
+        print("[失败] 登录超时，任务跳过")
+        browser.close()
+        return None, []
+
     try:
         page.goto("https://www.zhipin.com/", wait_until="domcontentloaded", timeout=60000)
     except Exception:
         time.sleep(5)
     time.sleep(3)
-    all_jobs = []
-    seen_links = set()
-    for kw in KEYWORDS:
-        if len(all_jobs) >= MAX_JOBS:
-            print(f"\n[已达上限 {MAX_JOBS}，停止列表采集]")
-            break
-        for city, code in CITIES.items():
-            if len(all_jobs) >= MAX_JOBS:
-                break
-            print(f"\n--- {kw} | {city} ---")
-            jobs = collect_list(page, kw, city, code)
-            new_jobs = [j for j in jobs if j["link"] not in seen_links]
-            for j in new_jobs:
-                seen_links.add(j["link"])
-            all_jobs.extend(new_jobs)
-            need = MAX_JOBS - len(all_jobs) + len(new_jobs)
-            print(f"  [去重后] +{len(new_jobs)} 条新岗位 (总计 {len(all_jobs)})")
-            delay(8, 15)
 
-    # 截断到 MAX_JOBS
-    if len(all_jobs) > MAX_JOBS:
-        all_jobs = all_jobs[:MAX_JOBS]
-        print(f"\n[截断] 保留前 {MAX_JOBS} 条")
+    # 收集列表
+    print(f"\n--- {keyword} | {city_name} ---")
+    jobs = collect_list(page, keyword, city_name, city_code)
+    print(f"  [列表] {len(jobs)} 条")
 
-    prefix = KEYWORDS[0].replace(" ","_").lower()
-    save(all_jobs, prefix)
-    print(f"\n[列表完成] {len(all_jobs)} 条（去重后），开始获取详情...")
-    collect_details(page, all_jobs)
+    # 截断
+    if len(jobs) > max_jobs:
+        jobs = jobs[:max_jobs]
+        print(f"  [截断] 保留前 {max_jobs} 条")
+
+    # 获取详情
+    collect_details(page, jobs)
     browser.close()
-    save(all_jobs, prefix)
-    filled = sum(1 for j in all_jobs if j.get("salary"))
+
+    # 保存文件
+    from datetime import datetime
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    slug = keyword.replace(" ", "_").lower()
+    prefix = f"{slug}_{city_name}_{date_str}"
+    save(jobs, prefix)
+
+    filled = sum(1 for j in jobs if j.get("salary"))
+    json_path = str(OUTPUT_DIR / f"{prefix}_jobs.json")
     print(f"\n{'='*50}")
-    print(f"  完成! {len(all_jobs)} 个岗位 | 薪资获取 {filled}/{len(all_jobs)}")
-    print(f"  CSV: data/{prefix}_jobs.csv")
-    print(f"  JSON: data/{prefix}_jobs.json")
+    print(f"  完成! {len(jobs)} 个岗位 | 薪资获取 {filled}/{len(jobs)}")
+    print(f"  JSON: {json_path}")
     print(f"{'='*50}")
+
+    return json_path, jobs
+
+
+def main():
+    """独立运行入口 — 使用默认参数批量抓取"""
+    import sys
+    if len(sys.argv) >= 4:
+        # 命令行参数: python scraper.py <keyword> <city> <city_code> [max_jobs]
+        kw = sys.argv[1]
+        city = sys.argv[2]
+        code = int(sys.argv[3])
+        max_j = int(sys.argv[4]) if len(sys.argv) > 4 else MAX_JOBS
+        scrape(kw, city, code, max_j)
+    else:
+        # 使用默认配置
+        print("=" * 50)
+        print("  BOSS直聘职位抓取 (默认配置)")
+        print(f"  关键词: {KEYWORDS}")
+        print(f"  城市: {list(CITIES.keys())}")
+        print(f"  上限: {MAX_JOBS} 条")
+        print("=" * 50)
+        browser = launch(headless=False, humanize=True)
+        page = browser.new_page()
+        login_wait(page)
+        try:
+            page.goto("https://www.zhipin.com/", wait_until="domcontentloaded", timeout=60000)
+        except Exception:
+            time.sleep(5)
+        time.sleep(3)
+        all_jobs = []
+        seen_links = set()
+        for kw in KEYWORDS:
+            if len(all_jobs) >= MAX_JOBS:
+                print(f"\n[已达上限 {MAX_JOBS}，停止列表采集]")
+                break
+            for city, code in CITIES.items():
+                if len(all_jobs) >= MAX_JOBS:
+                    break
+                print(f"\n--- {kw} | {city} ---")
+                jobs = collect_list(page, kw, city, code)
+                new_jobs = [j for j in jobs if j["link"] not in seen_links]
+                for j in new_jobs:
+                    seen_links.add(j["link"])
+                all_jobs.extend(new_jobs)
+                print(f"  [去重后] +{len(new_jobs)} 条新岗位 (总计 {len(all_jobs)})")
+                delay(8, 15)
+
+        if len(all_jobs) > MAX_JOBS:
+            all_jobs = all_jobs[:MAX_JOBS]
+            print(f"\n[截断] 保留前 {MAX_JOBS} 条")
+
+        prefix = KEYWORDS[0].replace(" ","_").lower()
+        save(all_jobs, prefix)
+        print(f"\n[列表完成] {len(all_jobs)} 条（去重后），开始获取详情...")
+        collect_details(page, all_jobs)
+        browser.close()
+        save(all_jobs, prefix)
+        filled = sum(1 for j in all_jobs if j.get("salary"))
+        print(f"\n{'='*50}")
+        print(f"  完成! {len(all_jobs)} 个岗位 | 薪资获取 {filled}/{len(all_jobs)}")
+        print(f"  CSV: data/{prefix}_jobs.csv")
+        print(f"  JSON: data/{prefix}_jobs.json")
+        print(f"{'='*50}")
 
 if __name__ == "__main__":
     main()

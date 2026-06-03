@@ -1,0 +1,10 @@
+# BOSS直聘岗位追踪系统 — 任务配置 v1
+#
+# 后续扩展字段（暂不实现）：
+#   schedule: "0 9 * * 1"   # 定时表达式
+#   enabled: true/false       # 启停开关
+
+tasks:
+  - keyword: AI应用开发
+    cities: [北京]
+    webhook: https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxxxxxxxxxxx
