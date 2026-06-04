@@ -72,10 +72,82 @@ def wait_jobs(page, sec=25):
         except: pass
     return False
 
-def login_wait(page):
+def login_wait(page, on_qr=None):
     page.goto("https://www.zhipin.com/web/user/?ka=header-login",
               wait_until="domcontentloaded", timeout=30000)
     time.sleep(3)
+
+    # 截图二维码回传给远程用户
+    if on_qr:
+        try:
+            import base64 as _b64
+
+            # 1. 切换到二维码登录页面
+            switch_selectors = [
+                "text=微信登录", "text=微信登录/注册", "text=微信注册",
+                "text=扫码登录", "text=APP扫码", "text=扫码",
+                '[data-type="wechat"]', '[data-type="qrcode"]',
+                '.switch-wechat', '.switch-qrcode', '.tab-wechat',
+            ]
+            for sel in switch_selectors:
+                try:
+                    el = page.query_selector(sel)
+                    if el and el.is_visible():
+                        el.click()
+                        print(f"[QR] 点击了登录方式切换: {sel}")
+                        time.sleep(3)
+                        break
+                except Exception:
+                    continue
+
+            # 2. 尝试获取二维码图片 URL（比截图清晰）
+            qr_url = None
+            # 先检查 iframe
+            iframes = page.query_selector_all("iframe")
+            for iframe in iframes:
+                try:
+                    src = iframe.get_attribute("src")
+                    if src and ("qrcode" in src.lower() or "qr" in src.lower()
+                                or "weixin" in src.lower() or "wx" in src.lower()
+                                or "mp.weixin" in src.lower()):
+                        qr_url = src
+                        print(f"[QR] 找到 iframe QR: {qr_url[:80]}")
+                        break
+                except Exception:
+                    continue
+
+            # 再检查 img 标签
+            if not qr_url:
+                img_selectors = [
+                    'img[src*="qrcode"]', 'img[src*="QR"]',
+                    'img[src*="mp.weixin"]', 'img[src*="open.weixin"]',
+                    '.qrcode img', '.qrcode-img img', '.login-qrcode img',
+                    '.wechat-qrcode img', 'img[class*="qrcode"]', 'img[class*="qr"]',
+                ]
+                for sel in img_selectors:
+                    try:
+                        el = page.query_selector(sel)
+                        if el and el.is_visible():
+                            qr_url = el.get_attribute("src")
+                            if qr_url:
+                                print(f"[QR] 找到图片 QR: {qr_url[:80]}")
+                                break
+                    except Exception:
+                        continue
+
+            if qr_url:
+                on_qr(f"QR_URL:{qr_url}")
+                print("[QR] 二维码 URL 已回传")
+            else:
+                # 3. 回退：截图
+                print("[QR] 未找到 QR URL，使用截图回退")
+                img_bytes = page.screenshot(full_page=False, type="png")
+                on_qr(f"QR:{_b64.b64encode(img_bytes).decode()}")
+                print("[QR] 登录页截图已回传")
+
+        except Exception as e:
+            print(f"[QR] 截图失败: {e}")
+
     print("[等待登录] 请在浏览器中登录BOSS直聘...")
     for i in range(36):
         time.sleep(5)
@@ -152,13 +224,21 @@ def collect_list(page, keyword, city_name, city_code):
         delay(2, 4)
     return jobs
 
+def _safe_print(s):
+    """安全打印：处理 Windows GBK 终端无法编码的 Unicode 字符"""
+    try:
+        print(s)
+    except UnicodeEncodeError:
+        print(s.encode("ascii", errors="replace").decode("ascii"))
+
+
 def collect_details(page, jobs):
     total = len(jobs)
     consecutive_errors = 0
     for i, job in enumerate(jobs, 1):
         link = job.get("link", "")
         if not link: continue
-        print(f"  [{i}/{total}] {job['name'][:25]}...", end=" ", flush=True)
+        _safe_print(f"  [{i}/{total}] {job['name'][:25]}...")
         url = f"https://www.zhipin.com{link}" if link.startswith("/") else link
         try:
             page.goto(url, wait_until="domcontentloaded", timeout=15000)
@@ -169,12 +249,12 @@ def collect_details(page, jobs):
             job["industry"] = d.get("industry", "")
             job["scale"] = d.get("scale", "")
             job["financing"] = d.get("financing", "")
-            print(f"{job['salary']}")
+            _safe_print(f"    Salary: {job['salary']}")
             consecutive_errors = 0
             delay(1, 3)
         except Exception as e:
             err = str(e)[:60]
-            print(f"错误: {err}")
+            _safe_print(f"    错误: {err}")
             consecutive_errors += 1
             if consecutive_errors >= 3 or "DISCONNECTED" in err.upper():
                 wait = min(30 + consecutive_errors * 10, 90)
@@ -205,8 +285,9 @@ CITY_CODES = {
 }
 
 
-def scrape(keyword, city_name, city_code, max_jobs=40, pages_per_search=2):
-    """单任务抓取入口 — 供 scheduler 调用
+def scrape(keyword, city_name, city_code, max_jobs=40, pages_per_search=2,
+           headless=False, on_progress=None):
+    """单任务抓取入口 — 供 scheduler / Web 调用
 
     Args:
         keyword: 搜索关键词
@@ -214,23 +295,37 @@ def scrape(keyword, city_name, city_code, max_jobs=40, pages_per_search=2):
         city_code: BOSS直聘城市编码
         max_jobs: 抓取数量上限
         pages_per_search: 滚动翻页轮数
+        headless: 是否无头模式（默认 False；Web 部署时可设 True）
+        on_progress: 进度回调 fn(msg: str)，Web 调用时传入实时推送进度
 
     Returns:
         (json_path, jobs_list) 或 (None, []) 如果失败
     """
-    print("=" * 50)
-    print("  BOSS直聘职位抓取")
-    print(f"  关键词: {keyword}")
-    print(f"  城市: {city_name}")
-    print(f"  上限: {max_jobs} 条")
-    print("=" * 50)
+    def _log(msg):
+        """同时输出到终端和 Web 进度回调"""
+        _safe_print(msg)
+        if on_progress:
+            on_progress(msg)
 
-    browser = launch(headless=False, humanize=True)
-    page = browser.new_page()
+    _log(f"[启动] BOSS直聘职位抓取: {keyword} · {city_name}")
 
-    if not login_wait(page):
-        print("[失败] 登录超时，任务跳过")
-        browser.close()
+    from cloakbrowser import launch_persistent_context
+    PROFILE_DIR = Path("boss-profile")
+    PROFILE_DIR.mkdir(exist_ok=True)
+    context = launch_persistent_context(
+        user_data_dir=str(PROFILE_DIR),
+        headless=headless,
+        humanize=True,
+    )
+    page = context.new_page()
+
+    _log("[检查] 正在验证登录状态...")
+    # 远程用户需要扫码：把二维码数据通过 on_progress 传出去
+    # on_qr 回调直接传带前缀的消息（QR_URL: 或 QR:），不再二次包装
+    _qr = (lambda data: on_progress(data)) if on_progress else None
+    if not login_wait(page, on_qr=_qr):
+        _log("[失败] 登录超时，任务跳过")
+        context.close()
         return None, []
 
     try:
@@ -240,18 +335,19 @@ def scrape(keyword, city_name, city_code, max_jobs=40, pages_per_search=2):
     time.sleep(3)
 
     # 收集列表
-    print(f"\n--- {keyword} | {city_name} ---")
+    _log(f"[搜索] 正在搜索: {keyword} ...")
     jobs = collect_list(page, keyword, city_name, city_code)
-    print(f"  [列表] {len(jobs)} 条")
+    _log(f"[列表] 采集完成: {len(jobs)} 条")
 
     # 截断
     if len(jobs) > max_jobs:
         jobs = jobs[:max_jobs]
-        print(f"  [截断] 保留前 {max_jobs} 条")
+        _log(f"[截断] 保留前 {max_jobs} 条")
 
     # 获取详情
+    _log(f"[详情] 正在获取岗位详情 (共 {len(jobs)} 条)...")
     collect_details(page, jobs)
-    browser.close()
+    context.close()
 
     # 保存文件
     from datetime import datetime
@@ -262,10 +358,7 @@ def scrape(keyword, city_name, city_code, max_jobs=40, pages_per_search=2):
 
     filled = sum(1 for j in jobs if j.get("salary"))
     json_path = str(OUTPUT_DIR / f"{prefix}_jobs.json")
-    print(f"\n{'='*50}")
-    print(f"  完成! {len(jobs)} 个岗位 | 薪资获取 {filled}/{len(jobs)}")
-    print(f"  JSON: {json_path}")
-    print(f"{'='*50}")
+    _log(f"[完成] {len(jobs)} 个岗位 | 薪资获取 {filled}/{len(jobs)}")
 
     return json_path, jobs
 

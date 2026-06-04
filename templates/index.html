@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Offerscope — BOSS直聘岗位市场洞察</title>
+<style>
+  /* ---- Reset & Base ---- */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f8f6f3; color: #2c2c2c; line-height: 1.6;
+    min-height: 100vh;
+  }
+  a { color: #b84c3b; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ---- Header ---- */
+  .header {
+    text-align: center; padding: 40px 24px 24px;
+  }
+  .header h1 {
+    font-family: "Noto Serif SC", "STSong", "SimSun", serif;
+    font-size: 2.2rem; font-weight: 700; color: #3a2a24;
+    letter-spacing: 0.04em;
+  }
+  .header p { color: #8b7b6f; margin-top: 6px; font-size: 0.95rem; }
+
+  /* ---- Container ---- */
+  .container { max-width: 720px; margin: 0 auto; padding: 0 20px 60px; }
+
+  /* ---- Card ---- */
+  .card {
+    background: #fff; border-radius: 12px; padding: 28px 32px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06); margin-bottom: 20px;
+  }
+  .card-title {
+    font-family: "Noto Serif SC", serif;
+    font-size: 1.15rem; font-weight: 600; color: #3a2a24;
+    margin-bottom: 18px; padding-bottom: 10px;
+    border-bottom: 1px solid #f0ebe4;
+  }
+
+  /* ---- Form ---- */
+  .form-row { margin-bottom: 16px; }
+  .form-row label { display: block; font-size: 0.9rem; color: #6b5e53; margin-bottom: 5px; }
+  .form-row label .required { color: #b84c3b; }
+  .form-row input, .form-row select {
+    width: 100%; padding: 10px 14px; border: 1px solid #e0d7cd;
+    border-radius: 8px; font-size: 0.95rem; font-family: inherit;
+    background: #fdfbf8; transition: border-color .2s;
+  }
+  .form-row input:focus, .form-row select:focus {
+    outline: none; border-color: #b84c3b; box-shadow: 0 0 0 3px rgba(184,76,59,.08);
+  }
+  .form-hint { font-size: 0.8rem; color: #a09181; margin-top: 3px; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 32px; border: none; border-radius: 8px;
+    font-size: 1rem; font-family: inherit; font-weight: 600;
+    cursor: pointer; transition: all .2s;
+  }
+  .btn-primary {
+    background: #b84c3b; color: #fff;
+  }
+  .btn-primary:hover { background: #9e3f30; }
+  .btn-primary:disabled { background: #d4c4b8; cursor: not-allowed; }
+
+  .btn-outline {
+    background: #fff; color: #b84c3b; border: 1.5px solid #b84c3b;
+  }
+  .btn-outline:hover { background: #fef8f6; }
+
+  /* ---- Progress ---- */
+  #progress-area { display: none; }
+  .qrcode-wrap {
+    text-align: center; padding: 20px 16px; margin-bottom: 16px;
+    background: #fff; border: 1px solid #f0ebe4; border-radius: 10px;
+  }
+  .qrcode-wrap img { max-width: 320px; width: 100%; height: auto; border-radius: 8px; }
+  .qrcode-wrap .qrcode-tip {
+    margin-top: 10px; font-size: 0.9rem; color: #6b5e53;
+    font-weight: 500;
+  }
+  .qrcode-wrap .qrcode-sub {
+    font-size: 0.78rem; color: #a09181; margin-top: 4px;
+  }
+  .progress-stages { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+  .stage {
+    display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+    border-radius: 6px; font-size: 0.9rem; color: #a09181;
+  }
+  .stage.active { color: #b84c3b; font-weight: 600; background: #fef8f6; }
+  .stage.done { color: #5a8a6a; }
+  .stage .dot {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    background: #e0d7cd;
+  }
+  .stage.active .dot { background: #b84c3b; animation: pulse 1.2s infinite; }
+  .stage.done .dot { background: #5a8a6a; }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.5); opacity: 0.5; }
+  }
+  .progress-bar-wrap {
+    height: 4px; background: #f0ebe4; border-radius: 2px;
+    overflow: hidden; margin-bottom: 8px;
+  }
+  .progress-bar-fill {
+    height: 100%; background: #b84c3b; border-radius: 2px;
+    transition: width .5s ease;
+  }
+  .progress-msg { font-size: 0.85rem; color: #6b5e53; }
+
+  .error-box {
+    padding: 12px 16px; background: #fff3f0; border: 1px solid #f5c6b8;
+    border-radius: 8px; color: #b84c3b; font-size: 0.9rem; margin-top: 12px;
+  }
+
+  /* ---- Result ---- */
+  #result-area { display: none; }
+  .result-success {
+    padding: 16px 20px; background: #f4faf4; border: 1px solid #c8e6c9;
+    border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem; color: #3a6b3a;
+  }
+  .report-frame {
+    width: 100%; height: 80vh; border: 1px solid #e0d7cd;
+    border-radius: 8px; background: #fff;
+  }
+
+  /* ---- Reports List ---- */
+  .report-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 0; border-bottom: 1px solid #f0ebe4;
+  }
+  .report-item:last-child { border-bottom: none; }
+  .report-info { display: flex; flex-direction: column; gap: 2px; }
+  .report-name { font-weight: 600; font-size: 0.9rem; }
+  .report-meta { font-size: 0.8rem; color: #a09181; }
+  .report-link {
+    font-size: 0.85rem; padding: 6px 14px; border-radius: 6px;
+    background: #fdfbf8; border: 1px solid #e0d7cd;
+    color: #b84c3b; text-decoration: none; white-space: nowrap;
+  }
+  .report-link:hover { background: #fef8f6; }
+
+  .empty-state { text-align: center; padding: 32px 0; color: #a09181; font-size: 0.9rem; }
+
+  /* ---- Footer ---- */
+  .footer { text-align: center; padding: 20px; color: #a09181; font-size: 0.8rem; }
+
+  /* ---- Spinner ---- */
+  .spinner {
+    display: inline-block; width: 16px; height: 16px; border: 2px solid #e0d7cd;
+    border-top-color: #b84c3b; border-radius: 50%; animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---- Responsive ---- */
+  @media (max-width: 600px) {
+    .header h1 { font-size: 1.6rem; }
+    .card { padding: 20px 16px; }
+    .header { padding: 28px 16px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Offerscope</h1>
+  <p>BOSS 直聘岗位市场洞察 — 输入岗位，即刻分析</p>
+</div>
+
+<div class="container">
+
+  <!-- 表单 -->
+  <div class="card" id="form-card">
+    <div class="card-title">📋 市场分析</div>
+    <div class="form-row">
+      <label><span class="required">*</span> 岗位名称</label>
+      <input type="text" id="keyword" placeholder="如：AI应用后端工程师"
+             maxlength="40" autocomplete="off">
+    </div>
+    <div class="form-row">
+      <label>城市</label>
+      <select id="city">
+        <option value="北京">北京</option>
+        <option value="上海">上海</option>
+        <option value="广州">广州</option>
+        <option value="深圳">深圳</option>
+        <option value="杭州">杭州</option>
+        <option value="成都">成都</option>
+        <option value="南京">南京</option>
+        <option value="武汉">武汉</option>
+        <option value="西安">西安</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>抓取数量</label>
+      <input type="number" id="max_jobs" value="10" min="1" max="50">
+      <div class="form-hint">上限 50 条，推荐 10-30 条</div>
+    </div>
+    <div class="form-row">
+      <label>飞书 Webhook（选填）</label>
+      <input type="url" id="webhook" placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..."
+             autocomplete="off">
+      <div class="form-hint">填写后抓取完成自动推送飞书卡片</div>
+    </div>
+    <button class="btn btn-primary" id="submit-btn" onclick="startScrape()">
+      <span id="submit-text">🔍 开始分析</span>
+    </button>
+    <div id="form-error" class="error-box" style="display:none; margin-top:14px;"></div>
+  </div>
+
+  <!-- 进度 -->
+  <div class="card" id="progress-area">
+    <div class="card-title">⏳ 分析进度</div>
+    <div class="progress-stages" id="stages">
+      <div class="stage" data-stage="start">
+        <span class="dot"></span>启动浏览器
+      </div>
+      <div class="stage" data-stage="search">
+        <span class="dot"></span>搜索岗位列表
+      </div>
+      <div class="stage" data-stage="detail">
+        <span class="dot"></span>获取岗位详情
+      </div>
+      <div class="stage" data-stage="report">
+        <span class="dot"></span>生成分析报告
+      </div>
+      <div class="stage" data-stage="done">
+        <span class="dot"></span>完成
+      </div>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progress-bar" style="width:0%"></div>
+    </div>
+    <div id="qrcode-area" class="qrcode-wrap" style="display:none;">
+      <img id="qrcode-img" src="" alt="登录二维码">
+      <div class="qrcode-tip">📱 请使用 BOSS直聘APP 扫描二维码登录</div>
+      <div class="qrcode-sub">扫码完成后将自动继续抓取</div>
+    </div>
+    <div class="progress-msg" id="progress-msg"></div>
+    <div id="progress-error" class="error-box" style="display:none; margin-top:12px;"></div>
+  </div>
+
+  <!-- 结果 -->
+  <div class="card" id="result-area">
+    <div class="card-title">📊 分析结果</div>
+    <div id="result-content"></div>
+  </div>
+
+  <!-- 最近报告 -->
+  <div class="card">
+    <div class="card-title">📚 最近报告</div>
+    <div id="reports-list"><div class="spinner"></div></div>
+  </div>
+
+</div>
+
+<div class="footer">Offerscope · BOSS直聘岗位市场洞察</div>
+
+<script>
+// ---- State ----
+let pollTimer = null;
+let currentJobId = null;
+
+// ---- Progress stage mapping ----
+const STAGE_KEYS = ['start', 'search', 'detail', 'report', 'done'];
+const STAGE_PATTERNS = [
+  { key: 'start',  match: ['启动', '浏览器', '登录', '检查'] },
+  { key: 'search', match: ['搜索', '列表', '采集'] },
+  { key: 'detail', match: ['详情'] },
+  { key: 'report', match: ['分析报告', '生成'] },
+  { key: 'done',   match: ['完成', '✅'] },
+];
+
+function guessStage(msg) {
+  for (const p of STAGE_PATTERNS) {
+    for (const m of p.match) {
+      if (msg.includes(m)) return p.key;
+    }
+  }
+  return null;
+}
+
+function updateStages(currentKey) {
+  let found = false;
+  document.querySelectorAll('.stage').forEach(el => {
+    const key = el.dataset.stage;
+    el.classList.remove('active', 'done');
+    if (key === currentKey) {
+      el.classList.add('active');
+      found = true;
+    } else if (!found) {
+      el.classList.add('done');
+    }
+  });
+  // progress bar
+  const idx = STAGE_KEYS.indexOf(currentKey);
+  const pct = idx >= 0 ? Math.round(((idx + 0.5) / STAGE_KEYS.length) * 100) : 0;
+  document.getElementById('progress-bar').style.width = pct + '%';
+}
+
+// ---- API helpers ----
+async function api(url, opts = {}) {
+  const res = await fetch(url, opts);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(body.error || body.detail || '请求失败');
+  }
+  return res.json();
+}
+
+// ---- Start scrape ----
+async function startScrape() {
+  const keyword = document.getElementById('keyword').value.trim();
+  const city = document.getElementById('city').value;
+  const maxJobs = document.getElementById('max_jobs').value;
+  const webhook = document.getElementById('webhook').value.trim();
+
+  // Validate
+  const errEl = document.getElementById('form-error');
+  errEl.style.display = 'none';
+  if (!keyword) {
+    errEl.textContent = '请输入岗位名称';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  // Show progress, hide result
+  document.getElementById('form-error').style.display = 'none';
+  document.getElementById('result-area').style.display = 'none';
+  document.getElementById('progress-area').style.display = 'block';
+  document.getElementById('progress-error').style.display = 'none';
+  document.getElementById('qrcode-area').style.display = 'none';
+  document.getElementById('progress-msg').textContent = '';
+  document.getElementById('progress-bar').style.width = '0%';
+  document.querySelectorAll('.stage').forEach(s => s.classList.remove('active', 'done'));
+
+  // Disable button
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  document.getElementById('submit-text').innerHTML = '<span class="spinner"></span> 提交中...';
+
+  try {
+    const data = await api('/api/scrape', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keyword, city, max_jobs: parseInt(maxJobs) || 10, webhook }),
+    });
+    currentJobId = data.job_id;
+    document.getElementById('submit-text').textContent = '🔍 开始分析';
+    btn.disabled = false;
+    startPolling();
+  } catch (e) {
+    document.getElementById('submit-text').textContent = '🔍 开始分析';
+    btn.disabled = false;
+    document.getElementById('progress-area').style.display = 'none';
+    const errEl = document.getElementById('form-error');
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+  }
+}
+
+// ---- Polling ----
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(pollStatus, 2000);
+}
+
+async function pollStatus() {
+  if (!currentJobId) return;
+  try {
+    const data = await api('/api/status/' + currentJobId);
+
+    // QR code: prefer high-res URL, fallback to screenshot base64
+    const qrArea = document.getElementById('qrcode-area');
+    const qrImg = document.getElementById('qrcode-img');
+    if (data.qrcode_url) {
+      qrImg.src = data.qrcode_url;
+      qrArea.style.display = 'block';
+    } else if (data.qrcode) {
+      qrImg.src = data.qrcode;
+      qrArea.style.display = 'block';
+    } else {
+      qrArea.style.display = 'none';
+    }
+
+    // Update progress
+    const stageKey = guessStage(data.progress);
+    if (stageKey) updateStages(stageKey);
+    document.getElementById('progress-msg').textContent = data.progress;
+
+    if (data.status === 'done') {
+      clearInterval(pollTimer);
+      pollTimer = null;
+      document.getElementById('qrcode-area').style.display = 'none';
+      // Mark all stages done
+      document.querySelectorAll('.stage').forEach(s => {
+        s.classList.remove('active'); s.classList.add('done');
+      });
+      document.getElementById('progress-bar').style.width = '100%';
+      showResult(data);
+    } else if (data.status === 'error') {
+      clearInterval(pollTimer);
+      pollTimer = null;
+      document.getElementById('qrcode-area').style.display = 'none';
+      const errEl = document.getElementById('progress-error');
+      errEl.textContent = data.error || '抓取过程中出现错误';
+      errEl.style.display = 'block';
+    }
+  } catch (e) {
+    console.error('Poll error:', e);
+  }
+}
+
+// ---- Show result ----
+function showResult(data) {
+  document.getElementById('progress-area').style.display = 'none';
+  const area = document.getElementById('result-area');
+  area.style.display = 'block';
+  const content = document.getElementById('result-content');
+
+  if (data.webhook_sent) {
+    content.innerHTML = `
+      <div class="result-success">✅ 已推送到飞书</div>
+      <p style="margin-bottom:12px;font-size:0.9rem;">
+        ${data.keyword} · ${data.city} · ${data.jobs_count} 个岗位
+      </p>
+      <button class="btn btn-outline" onclick="openReport('${currentJobId}')">📊 查看完整报告</button>
+    `;
+  } else {
+    content.innerHTML = `
+      <p style="margin-bottom:12px;font-size:0.9rem;">
+        ${data.keyword} · ${data.city} · ${data.jobs_count} 个岗位
+      </p>
+      <iframe class="report-frame" src="/report/${currentJobId}" id="report-iframe"></iframe>
+    `;
+  }
+
+  // Refresh reports list
+  loadReports();
+}
+
+function openReport(jobId) {
+  window.open('/report/' + jobId, '_blank');
+}
+
+// ---- Reports list ----
+async function loadReports() {
+  const el = document.getElementById('reports-list');
+  try {
+    const data = await api('/api/reports');
+    if (!data.reports || data.reports.length === 0) {
+      el.innerHTML = '<div class="empty-state">暂无报告，提交一次分析后这里会出现历史记录</div>';
+      return;
+    }
+    el.innerHTML = data.reports.map(r => `
+      <div class="report-item">
+        <div class="report-info">
+          <span class="report-name">📊 报告 #${r.job_id}</span>
+          <span class="report-meta">${r.time}</span>
+        </div>
+        <a class="report-link" href="${r.url}" target="_blank">查看 →</a>
+      </div>
+    `).join('');
+  } catch (e) {
+    el.innerHTML = '<div class="empty-state">加载失败</div>';
+  }
+}
+
+// ---- Init ----
+document.addEventListener('DOMContentLoaded', () => {
+  loadReports();
+  // Enter key to submit
+  document.getElementById('keyword').addEventListener('keydown', e => {
+    if (e.key === 'Enter') startScrape();
+  });
+});
+</script>
+
+</body>
+</html>
