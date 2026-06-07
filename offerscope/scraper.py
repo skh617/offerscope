@@ -1,6 +1,6 @@
 """BOSS直聘职位抓取 (CloakBrowser)"""
 
-import json, csv, time, random, re
+import json, time, random, re
 from pathlib import Path
 from cloakbrowser import launch
 
@@ -74,6 +74,20 @@ def wait_jobs(page, sec=25):
     return False
 
 def login_wait(page, on_qr=None):
+    """等待用户登录 BOSS 直聘。已登录则直接返回，不触发二维码。"""
+    # 先检查是否已有有效登录态
+    try:
+        page.goto("https://www.zhipin.com/", wait_until="domcontentloaded", timeout=20000)
+        time.sleep(2)
+        cookies = page.context.cookies()
+        has_token = any(c["name"] in ("token", "wt2", "bst") for c in cookies)
+        if has_token:
+            print("[登录] 已有有效登录态，跳过扫码")
+            return True
+    except Exception:
+        pass
+
+    # 无登录态 → 导航到登录页，获取二维码
     page.goto("https://www.zhipin.com/web/user/?ka=header-login",
               wait_until="domcontentloaded", timeout=30000)
     time.sleep(3)
@@ -246,7 +260,7 @@ def collect_details(page, jobs):
             time.sleep(random.uniform(1, 2))
             d = page.evaluate(JS_DETAIL)
             job["salary"] = d.get("salary", "")
-            job["description"] = d.get("description", "")[:500]
+            job["description"] = d.get("description", "")
             job["industry"] = d.get("industry", "")
             job["scale"] = d.get("scale", "")
             job["financing"] = d.get("financing", "")
@@ -271,12 +285,6 @@ def collect_details(page, jobs):
 def save(jobs, prefix):
     with open(OUTPUT_DIR / f"{prefix}_jobs.json", "w", encoding="utf-8") as f:
         json.dump(jobs, f, ensure_ascii=False, indent=2)
-    fields = ["keyword","city","name","salary","experience","education",
-              "company","location","industry","scale","financing","description","link"]
-    with open(OUTPUT_DIR / f"{prefix}_jobs.csv", "w", encoding="utf-8-sig", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
-        w.writeheader()
-        w.writerows(jobs)
 
 # 城市编码映射表
 CITY_CODES = {
@@ -287,7 +295,7 @@ CITY_CODES = {
 
 
 def scrape(keyword, city_name, city_code, max_jobs=40, pages_per_search=2,
-           headless=False, on_progress=None):
+           headless=False, on_progress=None, job_id=None):
     """单任务抓取入口 — 供 scheduler / Web 调用
 
     Args:
@@ -298,6 +306,7 @@ def scrape(keyword, city_name, city_code, max_jobs=40, pages_per_search=2,
         pages_per_search: 滚动翻页轮数
         headless: 是否无头模式（默认 False；Web 部署时可设 True）
         on_progress: 进度回调 fn(msg: str)，Web 调用时传入实时推送进度
+        job_id: Web 任务 ID（可选，有则用于文件命名以关联 report）
 
     Returns:
         (json_path, jobs_list) 或 (None, []) 如果失败
@@ -352,9 +361,12 @@ def scrape(keyword, city_name, city_code, max_jobs=40, pages_per_search=2,
 
     # 保存文件
     from datetime import datetime
-    date_str = datetime.now().strftime("%Y-%m-%d")
     slug = keyword.replace(" ", "_").lower()
-    prefix = f"{slug}_{city_name}_{date_str}"
+    if job_id:
+        prefix = f"{slug}_{job_id}"
+    else:
+        date_str = datetime.now().strftime("%Y-%m-%d")
+        prefix = f"{slug}_{city_name}_{date_str}"
     save(jobs, prefix)
 
     filled = sum(1 for j in jobs if j.get("salary"))
@@ -421,8 +433,7 @@ def main():
         filled = sum(1 for j in all_jobs if j.get("salary"))
         print(f"\n{'='*50}")
         print(f"  完成! {len(all_jobs)} 个岗位 | 薪资获取 {filled}/{len(all_jobs)}")
-        print(f"  CSV: data/{prefix}_jobs.csv")
-        print(f"  JSON: data/{prefix}_jobs.json")
+        print(f"  JSON: storage/jobs/{prefix}_jobs.json")
         print(f"{'='*50}")
 
 if __name__ == "__main__":

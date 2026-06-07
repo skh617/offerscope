@@ -362,7 +362,10 @@ body {{ background: var(--bg); color: var(--text); font-family: var(--font-sans)
 .modal-content h3 {{ font-family: var(--font-serif); font-size: 20px; color: var(--accent); margin-bottom: 4px; }}
 .modal-meta {{ font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; }}
 .modal-meta span {{ margin-right: 16px; }}
-.modal-desc {{ font-size: 14px; line-height: 1.8; white-space: pre-wrap; }}
+.modal-desc {{ font-size: 14px; line-height: 1.8; }}
+.modal-desc p {{ margin: 0 0 10px; }}
+.modal-desc strong {{ color: #3a2a24; font-size: 15px; }}
+.modal-desc .list-num {{ color: var(--accent); font-weight: 600; }}
 .modal-close {{ position: absolute; top: 16px; right: 16px; background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-secondary); }}
 
 /* Market Signals */
@@ -684,7 +687,7 @@ function showDetail(i) {{
     <div class="modal-meta">
       <span>行业: ${{j.industry||'--'}}</span><span>规模: ${{j.scale||'--'}}</span><span>融资: ${{j.financing||'--'}}</span>
     </div>
-    <div class="modal-desc">${{(j.description||'暂无描述').replace(/</g,'&lt;').replace(/>/g,'&gt;')}}</div>
+    <div class="modal-desc">${{formatDescription(j.description||'暂无描述')}}</div>
     <div style="margin-top:16px;display:flex;gap:12px;">
       <a href="https://www.zhipin.com${{j.link||''}}" target="_blank" style="display:inline-block;padding:8px 20px;background:var(--accent);color:white;text-decoration:none;font-size:14px;">查看BOSS直聘原文 →</a>
       <button style="padding:8px 20px;background:transparent;color:var(--text-secondary);border:1px solid var(--border);cursor:pointer;font-size:14px;" onclick="document.getElementById('modalOverlay').classList.remove('active')">关闭</button>
@@ -699,6 +702,34 @@ document.getElementById('modalOverlay').addEventListener('click', function(e) {{
 document.addEventListener('keydown', function(e) {{
   if (e.key === 'Escape') document.getElementById('modalOverlay').classList.remove('active');
 }});
+
+function formatDescription(text) {{
+  // 安全转义 HTML
+  text = text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // 章节标题加粗
+  var headers = ['任职要求', '岗位职责', '职位描述', '岗位要求', '工作内容',
+    '技术要求', '能力要求', '加分项', '优先条件',
+    '职位要求', '岗位说明', '工作职责', '职责描述'];
+  for (var i = 0; i < headers.length; i++) {{
+    var h = headers[i];
+    text = text.replace(new RegExp(h + '[：:]', 'g'), '<strong>$&</strong>');
+  }}
+
+  // 在编号列表项前插入换行（textContent 会丢掉 HTML 换行）
+  var NL = String.fromCharCode(10);
+  text = text.replace(/([。；;])(\s*)(\d+[.、）)])/g, '$1' + NL + '$3');
+
+  // 双换行分段，单换行转 <br>
+  var paras = text.split(new RegExp(NL + '\\s*' + NL));
+  return paras.map(function(p) {{
+    p = p.trim();
+    if (!p) return '';
+    // 编号列表项着色
+    p = p.replace(new RegExp('^(\\d+)[.、）)]\\\\s*', 'gm'), '<span class="list-num">$1.</span> ');
+    return '<p>' + p.replace(new RegExp(NL, 'g'), '<br>') + '</p>';
+  }}).join('');
+}}
 
 renderTable();
 </script>

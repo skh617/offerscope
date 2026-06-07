@@ -88,7 +88,7 @@ def _run_scrape(job: JobState):
     try:
         with _lock:
             job.status = "running"
-        _set_progress(job, "正在启动浏览器...")
+        _set_progress(job, "正在验证登录信息...")
 
         city_code = CITY_CODES.get(job.city, 101010100)
 
@@ -99,6 +99,7 @@ def _run_scrape(job: JobState):
             max_jobs=job.max_jobs,
             headless=False,
             on_progress=lambda msg: _set_progress(job, msg),
+            job_id=job.job_id,
         )
 
         if not json_path or not jobs_list:
@@ -116,7 +117,8 @@ def _run_scrape(job: JobState):
 
         report_dir = REPORTS_DIR
         report_dir.mkdir(exist_ok=True)
-        report_path = report_dir / f"web_{job.job_id}.html"
+        kw_slug = job.keyword.replace(" ", "_").lower()
+        report_path = report_dir / f"{kw_slug}_{job.job_id}_report.html"
         report_path.write_text(report_html, encoding="utf-8")
 
         with _lock:
@@ -240,10 +242,10 @@ async def api_status(job_id: str):
 
 @app.get("/report/{job_id}", response_class=HTMLResponse)
 async def view_report(job_id: str):
-    report_path = REPORTS_DIR / f"web_{job_id}.html"
-    if not report_path.exists():
+    candidates = sorted(REPORTS_DIR.glob(f"*_{job_id}_report.html"))
+    if not candidates:
         raise HTTPException(404, "报告不存在或已被清理")
-    return report_path.read_text(encoding="utf-8")
+    return candidates[0].read_text(encoding="utf-8")
 
 
 @app.get("/api/reports")
@@ -254,12 +256,15 @@ async def api_reports():
         return {"reports": []}
 
     reports = []
-    for f in sorted(report_dir.glob("web_*.html"), key=lambda p: p.stat().st_mtime, reverse=True)[:10]:
+    for f in sorted(report_dir.glob("*_*_report.html"), key=lambda p: p.stat().st_mtime, reverse=True)[:10]:
+        # stem format: {keyword_slug}_{job_id}_report → extract job_id (last part before _report)
+        stem = f.stem
+        job_id = stem.rsplit("_", 2)[-2]  # second-to-last segment
         reports.append({
-            "job_id": f.stem.replace("web_", ""),
-            "name": f.stem,
+            "job_id": job_id,
+            "name": stem,
             "time": datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d %H:%M"),
-            "url": f"/report/{f.stem.replace('web_', '')}",
+            "url": f"/report/{job_id}",
         })
 
     return {"reports": reports}
