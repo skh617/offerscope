@@ -223,7 +223,7 @@ def dry_run(jobs_file):
     Args:
         jobs_file: JSON岗位数据文件路径
     """
-    from tools.trend import compute_trend
+    from offerscope.trend import compute_trend
 
     with open(jobs_file, "r", encoding="utf-8") as f:
         jobs = json.load(f)

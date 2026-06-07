@@ -4,14 +4,16 @@
 模块通过 JSON 数据文件解耦，单点失败不阻断整体流程。
 
 用法:
-    python scheduler.py              # 执行所有任务
-    python scheduler.py --dry-run    # 预览模式（跳过实际抓取，用已有数据）
+    python run_cli.py              # 执行所有任务
+    python run_cli.py --dry-run    # 预览模式（跳过实际抓取，用已有数据）
 """
 
 import sys
 import json
 from pathlib import Path
 from datetime import datetime
+
+from offerscope import JOBS_DIR, REPORTS_DIR
 
 # 尝试导入 yaml（配置文件必需）
 try:
@@ -48,11 +50,11 @@ def run_dry_run(config):
     print("  预览模式 (dry-run) — 使用已有数据验证流程")
     print("=" * 60)
 
-    from tools.trend import compute_trend
-    from tools.publisher import build_card
+    from offerscope.trend import compute_trend
+    from offerscope.publisher import build_card
 
-    data_dir = Path("data")
-    report_dir = Path("reports")
+    data_dir = JOBS_DIR
+    report_dir = REPORTS_DIR
     report_dir.mkdir(exist_ok=True)
 
     for task in config["tasks"]:
@@ -110,7 +112,7 @@ def run_dry_run(config):
             # 4. 生成报告
             print(f"  [报告] 生成 HTML...")
             try:
-                from tools.analyzer import analyze
+                from offerscope.analyzer import analyze
                 report_name = f"{kw_slug}_{city}_{datetime.now().strftime('%Y-%m-%d')}_分析报告.html"
                 report_path = report_dir / report_name
                 with open(report_path, "w", encoding="utf-8") as f:
@@ -156,12 +158,12 @@ def run_live(config):
     print("  实际执行模式")
     print("=" * 60)
 
-    from tools.trend import compute_trend
-    from tools.publisher import build_card, send
-    from tools.analyzer import analyze
+    from offerscope.trend import compute_trend
+    from offerscope.publisher import build_card, send
+    from offerscope.analyzer import analyze
 
-    data_dir = Path("data")
-    report_dir = Path("reports")
+    data_dir = JOBS_DIR
+    report_dir = REPORTS_DIR
     data_dir.mkdir(exist_ok=True)
     report_dir.mkdir(exist_ok=True)
 
@@ -175,7 +177,7 @@ def run_live(config):
 
     # 导入 scraper（需要 CloakBrowser 环境）
     try:
-        from tools.scraper import scrape
+        from offerscope.scraper import scrape
         SCRAPER_OK = True
     except ImportError as e:
         print(f"[警告] scraper 导入失败: {e}")

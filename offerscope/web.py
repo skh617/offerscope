@@ -1,6 +1,6 @@
 """Offerscope Web 服务 — FastAPI
 
-启动: python web_app.py
+启动: python run_web.py
 访问: http://localhost:8090
 
 路由:
@@ -20,6 +20,8 @@ from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 import uvicorn
+
+from offerscope import REPORTS_DIR, TEMPLATES_DIR
 
 # ---------------------------------------------------------------------------
 # App
@@ -90,7 +92,7 @@ def _run_scrape(job: JobState):
 
         city_code = CITY_CODES.get(job.city, 101010100)
 
-        from tools.scraper import scrape
+        from offerscope.scraper import scrape
 
         json_path, jobs_list = scrape(
             job.keyword, job.city, city_code,
@@ -109,10 +111,10 @@ def _run_scrape(job: JobState):
             job.jobs_count = len(jobs_list)
         _set_progress(job, "正在生成分析报告...")
 
-        from tools.analyzer import analyze
+        from offerscope.analyzer import analyze
         report_html = analyze(jobs_list)
 
-        report_dir = Path("reports")
+        report_dir = REPORTS_DIR
         report_dir.mkdir(exist_ok=True)
         report_path = report_dir / f"web_{job.job_id}.html"
         report_path.write_text(report_html, encoding="utf-8")
@@ -124,8 +126,8 @@ def _run_scrape(job: JobState):
         if job.webhook and "open.feishu.cn" in job.webhook:
             _set_progress(job, "正在推送飞书...")
             try:
-                from tools.trend import compute_trend
-                from tools.publisher import build_card, send
+                from offerscope.trend import compute_trend
+                from offerscope.publisher import build_card, send
                 trend = compute_trend(jobs_list, job.keyword, job.city)
                 card = build_card(
                     job.keyword, job.city, len(jobs_list), trend,
@@ -153,7 +155,7 @@ def _run_scrape(job: JobState):
 # ---------------------------------------------------------------------------
 # 读取前端模板
 # ---------------------------------------------------------------------------
-_TEMPLATE_PATH = Path(__file__).parent / "templates" / "index.html"
+_TEMPLATE_PATH = TEMPLATES_DIR / "index.html"
 if _TEMPLATE_PATH.exists():
     INDEX_HTML = _TEMPLATE_PATH.read_text(encoding="utf-8")
 else:
@@ -238,7 +240,7 @@ async def api_status(job_id: str):
 
 @app.get("/report/{job_id}", response_class=HTMLResponse)
 async def view_report(job_id: str):
-    report_path = Path(f"reports/web_{job_id}.html")
+    report_path = REPORTS_DIR / f"web_{job_id}.html"
     if not report_path.exists():
         raise HTTPException(404, "报告不存在或已被清理")
     return report_path.read_text(encoding="utf-8")
@@ -247,7 +249,7 @@ async def view_report(job_id: str):
 @app.get("/api/reports")
 async def api_reports():
     """返回最近报告列表（扫描 reports/ 目录）"""
-    report_dir = Path("reports")
+    report_dir = REPORTS_DIR
     if not report_dir.exists():
         return {"reports": []}
 
@@ -266,9 +268,14 @@ async def api_reports():
 # ---------------------------------------------------------------------------
 # Entry
 # ---------------------------------------------------------------------------
-if __name__ == "__main__":
+def main():
+    """启动 Web 服务（供 run_web.py 调用）"""
     print("=" * 50)
     print("  Offerscope Web 服务")
     print("  访问: http://localhost:8090")
     print("=" * 50)
     uvicorn.run(app, host="0.0.0.0", port=8090)
+
+
+if __name__ == "__main__":
+    main()

@@ -5,6 +5,8 @@ from pathlib import Path
 from collections import Counter
 from datetime import datetime
 
+from offerscope import JOBS_DIR
+
 try:
     import jieba
     JIEBA_OK = True
@@ -12,7 +14,7 @@ except ImportError:
     JIEBA_OK = False
 
 # 复用 analyzer 的分析函数
-from tools.analyzer import (
+from offerscope.analyzer import (
     extract_salary_range, get_top_skills, skill_diff_high_vs_low,
 )
 
@@ -68,11 +70,11 @@ def _median_salary(jobs):
     return avgs[len(avgs) // 2]
 
 
-def _find_history(keyword, city, data_dir="data"):
+def _find_history(keyword, city, data_dir=None):
     """查找同一关键词+城市的上一次抓取数据
     Returns: (file_path, date_str) or (None, None)
     """
-    data_path = Path(data_dir)
+    data_path = Path(data_dir) if data_dir else JOBS_DIR
     if not data_path.exists():
         return None, None
 
@@ -104,7 +106,7 @@ def _find_history(keyword, city, data_dir="data"):
     return str(candidates[0][0]), candidates[0][1]
 
 
-def compare(current_file, keyword=None, city=None, data_dir="data"):
+def compare(current_file, keyword=None, city=None, data_dir=None):
     """比较当前抓取与历史数据
 
     Args:
@@ -215,7 +217,7 @@ def compare(current_file, keyword=None, city=None, data_dir="data"):
     return result
 
 
-def compute_trend(jobs, keyword, city, data_dir="data"):
+def compute_trend(jobs, keyword, city, data_dir=None):
     """从内存中的jobs列表计算趋势（无需存文件）
 
     Args:
@@ -302,7 +304,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         data_file = sys.argv[1]
     else:
-        data_dir = Path("data")
+        data_dir = JOBS_DIR
         json_files = sorted(data_dir.glob("*_jobs.json"), key=os.path.getmtime, reverse=True)
         if not json_files:
             print("没有找到数据文件")

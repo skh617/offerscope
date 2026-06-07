@@ -724,7 +724,8 @@ if __name__ == "__main__":
     print(f"分析: {data_file}")
     with open(data_file, "r", encoding="utf-8") as f:
         jobs = json.load(f)
-    report_dir = Path("reports")
+    from offerscope import REPORTS_DIR
+    report_dir = REPORTS_DIR
     report_dir.mkdir(exist_ok=True)
     report_name = data_file.stem.replace("_jobs", "") + "_分析报告.html"
     report_path = report_dir / report_name

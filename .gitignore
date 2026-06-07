@@ -216,3 +216,30 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ---------------------------------------------------------------------------
+# Offerscope — 运行时数据和工具
+# ---------------------------------------------------------------------------
+# Claude Code 会话缓存
+.superpowers/
+
+# 浏览器持久化 Profile（含登录态，不应入库）
+boss-profile/
+
+# Cloudflare Tunnel 二进制（按需下载，不应入库）
+cloudflared*.exe
+bin/
+
+# IDE 配置
+.idea/
+
+# 运行时数据（可重新抓取生成）
+storage/jobs/
+storage/reports/
+
+# Java 扩展预留
+java/
+
+# Claude Code 项目本地配置（机器特定，不应入库）
+.claude/
+

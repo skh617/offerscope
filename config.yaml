@@ -5,7 +5,7 @@
 #   enabled: true/false       # 启停开关
 
 tasks:
-  - keyword: AI应用开发
+  - keyword: AI应用后端工程师
     cities: [北京]
     max_jobs: 10
-    webhook: https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxxxxxxxxxxx
+    webhook: https://open.feishu.cn/open-apis/bot/v2/hook/779af410-89cf-4339-bc55-4e576c7935d3
